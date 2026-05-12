@@ -1,5 +1,5 @@
 # JsonFastFormat
-
+VIBE CODING WARNING
 JsonFastFormat is a local streaming JSON formatter for Windows. It is designed for large JSON files that are slow to format in Notepad or VS Code.
 
 ## For Normal Users
