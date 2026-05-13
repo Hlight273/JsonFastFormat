@@ -49,6 +49,7 @@ internal static class Program
 
             string previewDir = Path.Combine(Path.GetTempPath(), "JsonFastFormatPreview");
             Directory.CreateDirectory(previewDir);
+            CleanupOldPreviewFiles(previewDir);
 
             string baseName = Path.GetFileNameWithoutExtension(inputPath);
             string safeName = string.Join("_", baseName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
@@ -83,6 +84,26 @@ internal static class Program
         {
             MessageBox.Show(ex.Message, "JsonFastFormat", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return 1;
+        }
+    }
+
+    static void CleanupOldPreviewFiles(string previewDir)
+    {
+        DateTime cutoff = DateTime.Now.AddDays(-7);
+
+        foreach (string file in Directory.EnumerateFiles(previewDir, "*.json"))
+        {
+            try
+            {
+                if (File.GetLastWriteTime(file) < cutoff)
+                {
+                    File.Delete(file);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup; preview should not fail because a temp file is locked.
+            }
         }
     }
 

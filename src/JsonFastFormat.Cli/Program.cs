@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Diagnostics;
 using System.Globalization;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 var options = CliOptions.Parse(args);
@@ -51,6 +52,7 @@ try
         Indented = !options.Compact,
         IndentCharacter = ' ',
         IndentSize = options.IndentSize,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         SkipValidation = false
     };
 
@@ -94,6 +96,7 @@ static async Task FormatAsync(Stream input, Stream output, JsonWriterOptions wri
 
     await using var writer = new Utf8JsonWriter(output, writerOptions);
     int bufferedBytes = 0;
+    bool isFirstRead = true;
 
     try
     {
@@ -107,15 +110,25 @@ static async Task FormatAsync(Stream input, Stream output, JsonWriterOptions wri
             int bytesRead = await input.ReadAsync(buffer.AsMemory(bufferedBytes, buffer.Length - bufferedBytes));
             int totalBytes = bufferedBytes + bytesRead;
             bool isFinalBlock = bytesRead == 0;
+            int inputOffset = 0;
 
-            var reader = new Utf8JsonReader(buffer.AsSpan(0, totalBytes), isFinalBlock, readerState);
+            if (isFirstRead)
+            {
+                isFirstRead = false;
+                if (totalBytes >= 3 && buffer[0] == 0xEF && buffer[1] == 0xBB && buffer[2] == 0xBF)
+                {
+                    inputOffset = 3;
+                }
+            }
+
+            var reader = new Utf8JsonReader(buffer.AsSpan(inputOffset, totalBytes - inputOffset), isFinalBlock, readerState);
             while (reader.Read())
             {
                 WriteCurrentToken(ref reader, writer);
             }
 
             readerState = reader.CurrentState;
-            int consumedBytes = checked((int)reader.BytesConsumed);
+            int consumedBytes = checked((int)reader.BytesConsumed) + inputOffset;
             bufferedBytes = totalBytes - consumedBytes;
 
             if (bufferedBytes > 0)
